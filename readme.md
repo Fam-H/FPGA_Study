@@ -16,7 +16,7 @@
 
 ## ▶ 아래 명령어를 한 줄 씩 Git Bash에 입력
 
-```bash
+```
 git add .
 git commit -m "어떤 작업을 한건지 간단하게 코멘트 적는 곳"
 git push
