@@ -4,9 +4,9 @@
 프로젝트가 모여있는 최상이 폴더 안에서
 
 지금 수행중인 FPGA 학습 프로젝트는 
-"FPGA_Study"폴더 안에서 우클릭 하면 된다.
+`FPGA_Study` 폴더 안에서 우클릭 하면 된다.
 
-" 우클릭 → Open Git Bash Here 클릭 "
+" `우클릭` → `Open Git Bash Here` 클릭 "
 
 <br>
 
