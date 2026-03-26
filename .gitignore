@@ -1,0 +1,11 @@
+cat > .gitignore << 'EOF'
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+*.gen/
+*.jou
+*.log
+*.str
+EOF
