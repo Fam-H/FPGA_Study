@@ -1,5 +1,5 @@
 
-▶ Git Bash 여는 위치
+##Git Bash 여는 위치
 
 프로젝트가 모여있는 최상이 폴더 안에서
 
@@ -8,9 +8,9 @@
 
 " 우클릭 → Open Git Bash Here 클릭 "
 
+---
 
-
-▶ 아래 명령어를 한 줄 씩 Git Bash에 입력
+##아래 명령어를 한 줄 씩 Git Bash에 입력
 
 ```
 git add .
