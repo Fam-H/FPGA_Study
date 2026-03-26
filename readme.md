@@ -30,7 +30,7 @@ git push
 **굵게 쓰기**
 
 ```
-'assign' LED
+`assign` LED
 ```
 
 > 인용구
