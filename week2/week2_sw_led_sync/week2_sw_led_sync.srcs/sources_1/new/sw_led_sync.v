@@ -3,6 +3,7 @@ module sw_led_sync(
     input        btnC,      // 센터 버튼 (리셋용)
     input  [15:0] SW,
     output reg [15:0] LED   // reg로 선언 (always 블록에서 대입하니까)
+    // 선언 순서 : 방향 → 타입 → 비트폭 → 이름
 );
 
     // 순차 논리: 클럭의 상승 엣지마다 실행
