@@ -1,0 +1,180 @@
+
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #fff; color: #1a1a1a; }
+  @media (prefers-color-scheme: dark) { body { background: #1a1a1a; color: #e8e8e8; } }
+  .tab-bar { display:flex; gap:4px; margin-bottom:16px; }
+  .tab { padding:8px 16px; border-radius:8px; border:1px solid rgba(0,0,0,0.15); background:transparent; color:#666; cursor:pointer; font-size:13px; font-family:inherit; font-weight:400; transition:all .15s; }
+  .tab.active { background:rgba(0,0,0,0.05); color:#1a1a1a; font-weight:500; border-color:rgba(0,0,0,0.3); }
+  @media (prefers-color-scheme: dark) {
+    .tab { border-color:rgba(255,255,255,0.15); color:#999; }
+    .tab.active { background:rgba(255,255,255,0.08); color:#e8e8e8; border-color:rgba(255,255,255,0.3); }
+  }
+  .panel { display:none; }
+  .panel.active { display:block; }
+  .info { font-size:13px; color:#666; line-height:1.6; margin-bottom:12px; }
+  @media (prefers-color-scheme: dark) { .info { color:#999; } }
+  .info strong { color:#1a1a1a; font-weight:500; }
+  @media (prefers-color-scheme: dark) { .info strong { color:#e8e8e8; } }
+  .formula { font-family:'SF Mono', Consolas, monospace; font-size:13px; background:rgba(0,0,0,0.04); padding:8px 12px; border-radius:8px; margin:8px 0; color:#1a1a1a; display:inline-block; }
+  @media (prefers-color-scheme: dark) { .formula { background:rgba(255,255,255,0.06); color:#e8e8e8; } }
+  .svg-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .svg-label-bold { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight:500; }
+  .svg-label-sm { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:12px; }
+</style>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="showTab(0)">10ms (20비트)</button>
+  <button class="tab" onclick="showTab(1)">100ms (24비트)</button>
+  <button class="tab" onclick="showTab(2)">1초 (27비트)</button>
+</div>
+
+<div id="p0" class="panel active"></div>
+<div id="p1" class="panel"></div>
+<div id="p2" class="panel"></div>
+
+<script>
+const configs = [
+  { label:'10ms', maxVal:999999, bits:20, pow2:1048576, clocks:1000000, time:'0.01' },
+  { label:'100ms', maxVal:9999999, bits:24, pow2:16777216, clocks:10000000, time:'0.1' },
+  { label:'1초', maxVal:99999999, bits:27, pow2:134217728, clocks:100000000, time:'1' },
+];
+
+function showTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('active', j===i));
+  document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('active', j===i));
+}
+
+function numFmt(n) { return n.toLocaleString(); }
+
+const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const textPrimary = dark ? '#e8e8e8' : '#1a1a1a';
+const textSecondary = dark ? '#999' : '#666';
+const textTertiary = dark ? '#666' : '#aaa';
+const borderLight = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+configs.forEach((cfg, idx) => {
+  const W=680, H=460;
+  const panel = document.getElementById('p'+idx);
+
+  const infoHtml = `
+    <div class="info">
+      <strong>${cfg.label}</strong> = ${cfg.time}초 &times; 100,000,000 Hz = <strong>${numFmt(cfg.clocks)}</strong> 클럭<br>
+      카운터 범위: 0 ~ ${numFmt(cfg.maxVal)} (총 ${numFmt(cfg.clocks)}개)<br>
+      <span class="formula">2<sup>${cfg.bits}</sup> = ${numFmt(cfg.pow2)} &gt; ${numFmt(cfg.clocks)} &rarr; <strong>${cfg.bits}비트</strong> 필요</span>
+    </div>
+  `;
+
+  const LX=100, RX=640, SY=40;
+  const clkY=SY+30, cntY=SY+120, tickY=SY+210, noteY=SY+310;
+  const rowH=60;
+  const stepW = (RX-LX) / 7;
+
+  let svg = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += `<defs><marker id="a${idx}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`;
+
+  // Row labels
+  svg += `<text class="svg-label-bold" fill="${textPrimary}" font-size="14px" x="16" y="${clkY+rowH/2}" dominant-baseline="central">clk</text>`;
+  svg += `<text class="svg-label-bold" fill="${textPrimary}" font-size="14px" x="16" y="${cntY+rowH/2}" dominant-baseline="central">counter</text>`;
+  svg += `<text class="svg-label-bold" fill="${textPrimary}" font-size="14px" x="16" y="${tickY+rowH/2}" dominant-baseline="central">tick</text>`;
+
+  const showVals = [0, 1, 2, -1, cfg.maxVal-1, cfg.maxVal, 0];
+
+  // Dashed vertical lines
+  for (let i=0; i<=showVals.length; i++) {
+    const x = LX + i*stepW;
+    svg += `<line x1="${x}" y1="${clkY}" x2="${x}" y2="${tickY+rowH+10}" stroke="${borderLight}" stroke-width="0.5" stroke-dasharray="3 3"/>`;
+  }
+
+  // CLK waveform
+  let clkPath = `M ${LX} ${clkY+rowH-8}`;
+  for (let i=0; i<showVals.length; i++) {
+    const x = LX + i*stepW;
+    clkPath += ` L ${x} ${clkY+8} L ${x+stepW*0.5} ${clkY+8} L ${x+stepW*0.5} ${clkY+rowH-8} L ${x+stepW} ${clkY+rowH-8}`;
+  }
+  svg += `<path d="${clkPath}" fill="none" stroke="#3B8BD4" stroke-width="1.5"/>`;
+
+  // Rising edge arrows
+  for (let i=0; i<showVals.length; i++) {
+    const x = LX + i*stepW;
+    svg += `<text class="svg-label-sm" x="${x}" y="${clkY-4}" text-anchor="middle" fill="#3B8BD4">↑</text>`;
+  }
+
+  // Counter waveform
+  const cntBase = cntY+rowH-8;
+  const cntTop = cntY+8;
+  const cntRange = cntBase - cntTop;
+
+  for (let i=0; i<showVals.length; i++) {
+    const x = LX + i*stepW;
+    const val = showVals[i];
+    const isMax = (i === 5);
+    const isReset = (i === 6);
+
+    if (val === -1) {
+      svg += `<text class="svg-label-sm" x="${x+stepW/2}" y="${cntY+rowH/2}" text-anchor="middle" dominant-baseline="central" fill="${textSecondary}">. . .</text>`;
+      svg += `<line x1="${x}" y1="${cntY+rowH/2}" x2="${x+stepW}" y2="${cntY+rowH/2}" stroke="${borderLight}" stroke-width="1" stroke-dasharray="4 4"/>`;
+      continue;
+    }
+
+    let h = (val / cfg.maxVal) * cntRange * 0.85;
+    if (val <= 2) h = (val+1) * 12;
+    if (isMax) h = cntRange;
+    if (val === cfg.maxVal-1) h = cntRange * 0.88;
+    if (isReset) h = 4;
+
+    const yTop = cntBase - h;
+    const color = isMax ? '#D85A30' : '#1D9E75';
+
+    svg += `<line x1="${x}" y1="${cntBase}" x2="${x}" y2="${yTop}" stroke="${color}" stroke-width="1.5"/>`;
+    svg += `<line x1="${x}" y1="${yTop}" x2="${x+stepW}" y2="${yTop}" stroke="${color}" stroke-width="1.5"/>`;
+
+    let label = val <= 2 ? val.toString() : numFmt(val);
+    const labelY = yTop - 8;
+
+    if (isReset) {
+      svg += `<text class="svg-label-sm" x="${x+stepW/2}" y="${labelY}" text-anchor="middle" fill="#1D9E75" font-weight="500">0 (리셋)</text>`;
+    } else if (isMax) {
+      svg += `<text class="svg-label-sm" x="${x+stepW/2}" y="${labelY}" text-anchor="middle" fill="#D85A30" font-weight="500">${label}</text>`;
+    } else {
+      svg += `<text class="svg-label-sm" x="${x+stepW/2}" y="${labelY}" text-anchor="middle" fill="${color}">${label}</text>`;
+    }
+  }
+
+  // Tick waveform
+  const tickBase = tickY+rowH-8;
+  const tickTop = tickY+8;
+  svg += `<line x1="${LX}" y1="${tickBase}" x2="${RX}" y2="${tickBase}" stroke="#854F0B" stroke-width="1.5"/>`;
+
+  // HIGH pulse at maxVal position (index 5)
+  const px = LX + 5 * stepW;
+  svg += `<rect x="${px}" y="${tickTop}" width="${stepW}" height="${tickBase-tickTop}" fill="#D85A30" opacity="0.12" rx="2"/>`;
+  svg += `<line x1="${px}" y1="${tickBase}" x2="${px}" y2="${tickTop}" stroke="#D85A30" stroke-width="1.5"/>`;
+  svg += `<line x1="${px}" y1="${tickTop}" x2="${px+stepW}" y2="${tickTop}" stroke="#D85A30" stroke-width="1.5"/>`;
+  svg += `<line x1="${px+stepW}" y1="${tickTop}" x2="${px+stepW}" y2="${tickBase}" stroke="#D85A30" stroke-width="1.5"/>`;
+
+  // Tick labels
+  svg += `<text class="svg-label-sm" x="${px+stepW/2}" y="${tickTop-16}" text-anchor="middle" fill="#D85A30" font-weight="500">${cfg.label}마다 발생하는 펄스</text>`;
+  svg += `<text class="svg-label-sm" x="${px+stepW/2}" y="${tickTop-4}" text-anchor="middle" fill="#D85A30">(폭은 항상 10ns = 1클럭)</text>`;
+
+  // LOW label
+  svg += `<text class="svg-label-sm" x="${LX+stepW/2}" y="${tickBase-8}" text-anchor="middle" fill="#854F0B">LOW</text>`;
+
+  // Period annotation
+  const annY = noteY + 10;
+  const periodEnd = LX + 6 * stepW;
+  svg += `<line x1="${LX}" y1="${annY}" x2="${periodEnd}" y2="${annY}" stroke="${textSecondary}" stroke-width="1" marker-start="url(#a${idx})" marker-end="url(#a${idx})"/>`;
+  svg += `<text class="svg-label-sm" x="${(LX+periodEnd)/2}" y="${annY-10}" text-anchor="middle" fill="${textSecondary}">1주기 = ${cfg.label} (${numFmt(cfg.clocks)} 클럭)</text>`;
+
+  // Legend
+  const legY = annY + 30;
+  svg += `<rect x="${LX}" y="${legY}" width="12" height="12" rx="2" fill="#3B8BD4"/>`;
+  svg += `<text class="svg-label-sm" x="${LX+18}" y="${legY+9}" dominant-baseline="central" fill="${textSecondary}">100MHz 클럭 (10ns 주기)</text>`;
+  svg += `<rect x="${LX+220}" y="${legY}" width="12" height="12" rx="2" fill="#1D9E75"/>`;
+  svg += `<text class="svg-label-sm" x="${LX+238}" y="${legY+9}" dominant-baseline="central" fill="${textSecondary}">카운터 (0 ~ ${numFmt(cfg.maxVal)})</text>`;
+  svg += `<rect x="${LX+460}" y="${legY}" width="12" height="12" rx="2" fill="#D85A30"/>`;
+  svg += `<text class="svg-label-sm" x="${LX+478}" y="${legY+9}" dominant-baseline="central" fill="${textSecondary}">tick 펄스</text>`;
+
+  svg += `</svg>`;
+  panel.innerHTML = infoHtml + svg;
+});
+</script>
