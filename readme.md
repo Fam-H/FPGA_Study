@@ -21,8 +21,8 @@ git add .
 git commit -m "어떤 작업을 한건지 간단하게 코멘트 적는 곳"
 git push
 ```
-
-
+---
+<br>
 ## ▶ 임베드 할 html 파일 업로드 할 때
 
 1. HTML 파일을 `FPGA_Study/docs/` 폴더에 넣기
