@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UART Frame Timing - Annotated</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f4f0;
+    --text: #1a1a1a;
+    --text2: #666;
+    --border: rgba(0,0,0,0.12);
+    --green: #1D9E75;
+    --green-bg: rgba(29,158,117,0.08);
+    --green-dark: #0F6E56;
+    --orange: #D85A30;
+    --orange-bg: rgba(216,90,48,0.08);
+    --orange-dark: #993C1D;
+    --blue: #3B8BD4;
+    --blue-bg: rgba(59,139,212,0.08);
+    --blue-dark: #185FA5;
+    --leader: rgba(0,0,0,0.15);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --bg2: #2a2a28;
+      --text: #e8e8e8;
+      --text2: #999;
+      --border: rgba(255,255,255,0.12);
+      --green: #5DCAA5;
+      --green-bg: rgba(29,158,117,0.12);
+      --green-dark: #5DCAA5;
+      --orange: #F0997B;
+      --orange-bg: rgba(216,90,48,0.12);
+      --orange-dark: #F0997B;
+      --blue: #85B7EB;
+      --blue-bg: rgba(59,139,212,0.12);
+      --blue-dark: #85B7EB;
+      --leader: rgba(255,255,255,0.15);
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 16px;
+  }
+  .hint-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .hint {
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 6px;
+  }
+  .hint-green { background: var(--green-bg); color: var(--green-dark); }
+  .hint-orange { background: var(--orange-bg); color: var(--orange-dark); }
+  .svg-t { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; fill: var(--text); }
+  .svg-ts { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12px; fill: var(--text2); }
+  .svg-th { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; fill: var(--text); font-weight: 500; }
+  .note-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .note-box {
+    flex: 1;
+    min-width: 140px;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .note-box .title { font-weight: 500; margin-bottom: 2px; }
+  .n-idle { background: var(--green-bg); color: var(--green-dark); border: 0.5px solid var(--green); }
+  .n-start { background: var(--orange-bg); color: var(--orange-dark); border: 0.5px solid var(--orange); }
+  .n-data { background: var(--blue-bg); color: var(--blue-dark); border: 0.5px solid var(--blue); }
+  .n-stop { background: var(--green-bg); color: var(--green-dark); border: 0.5px solid var(--green); }
+  .fsm-section {
+    margin-top: 20px;
+    background: var(--bg2);
+    border-radius: 10px;
+    padding: 16px 20px;
+    border: 0.5px solid var(--border);
+  }
+  .fsm-title { font-size: 14px; font-weight: 500; margin-bottom: 14px; }
+  .fsm-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+  .fsm-card {
+    flex: 1;
+    min-width: 120px;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    text-align: center;
+  }
+  .fsm-card .state { font-weight: 500; font-size: 13px; margin-bottom: 4px; }
+  .fsm-card code { font-family: 'SF Mono', Consolas, monospace; font-size: 11px; }
+  .fsm-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--text2);
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+</style>
+
+<h1>UART TX 파형 — 'A' (0x41) 전송</h1>
+
+<div class="hint-row">
+  <div class="hint hint-green">HIGH(1) = 아무것도 안 보내는 상태</div>
+  <div class="hint hint-orange">LOW(0) = 신호 전송 중 / 시작 알림</div>
+</div>
+
+<svg width="100%" viewBox="0 0 680 310">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- Reference lines -->
+  <line x1="115" y1="60" x2="660" y2="60" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+  <line x1="115" y1="170" x2="660" y2="170" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+  <text class="svg-ts" x="85" y="64" text-anchor="middle">HIGH(1)</text>
+  <text class="svg-ts" x="85" y="174" text-anchor="middle">LOW(0)</text>
+
+  <!-- Waveform -->
+  <!-- Idle HIGH -->
+  <line x1="130" y1="60" x2="170" y2="60" stroke="var(--green)" stroke-width="2.5"/>
+  <!-- Drop to Start -->
+  <line x1="170" y1="60" x2="170" y2="170" stroke="var(--orange)" stroke-width="2.5"/>
+  <!-- Start bit LOW -->
+  <line x1="170" y1="170" x2="220" y2="170" stroke="var(--orange)" stroke-width="2.5"/>
+  <!-- D0=1 -->
+  <line x1="220" y1="170" x2="220" y2="60" stroke="var(--blue)" stroke-width="2.5"/>
+  <line x1="220" y1="60" x2="270" y2="60" stroke="var(--blue)" stroke-width="2.5"/>
+  <!-- D1=0 -->
+  <line x1="270" y1="60" x2="270" y2="170" stroke="var(--blue)" stroke-width="2.5"/>
+  <line x1="270" y1="170" x2="320" y2="170" stroke="var(--blue)" stroke-width="2.5"/>
+  <!-- D2=0 -->
+  <line x1="320" y1="170" x2="370" y2="170" stroke="var(--blue)" stroke-width="2.5"/>
+  <!-- D3=0 -->
+  <line x1="370" y1="170" x2="420" y2="170" stroke="var(--blue)" stroke-width="2.5"/>
+  <!-- D4=0 -->
+  <line x1="420" y1="170" x2="470" y2="170" stroke="var(--blue)" stroke-width="2.5"/>
+  <!-- D5=0 -->
+  <line x1="470" y1="170" x2="520" y2="170" stroke="var(--blue)" stroke-width="2.5"/>
+  <!-- D6=1 -->
+  <line x1="520" y1="170" x2="520" y2="60" stroke="var(--blue)" stroke-width="2.5"/>
+  <line x1="520" y1="60" x2="570" y2="60" stroke="var(--blue)" stroke-width="2.5"/>
+  <!-- D7=0 -->
+  <line x1="570" y1="60" x2="570" y2="170" stroke="var(--blue)" stroke-width="2.5"/>
+  <line x1="570" y1="170" x2="620" y2="170" stroke="var(--blue)" stroke-width="2.5"/>
+  <!-- Stop HIGH -->
+  <line x1="620" y1="170" x2="620" y2="60" stroke="var(--green)" stroke-width="2.5"/>
+  <line x1="620" y1="60" x2="660" y2="60" stroke="var(--green)" stroke-width="2.5"/>
+
+  <!-- Vertical separators -->
+  <line x1="170" y1="48" x2="170" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="220" y1="48" x2="220" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="270" y1="48" x2="270" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="320" y1="48" x2="320" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="370" y1="48" x2="370" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="420" y1="48" x2="420" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="470" y1="48" x2="470" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="520" y1="48" x2="520" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="570" y1="48" x2="570" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="620" y1="48" x2="620" y2="182" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>
+
+  <!-- Bit labels -->
+  <text class="svg-ts" x="150" y="200" text-anchor="middle" fill="var(--green)">Idle</text>
+  <text class="svg-ts" x="195" y="200" text-anchor="middle" fill="var(--orange)">Start</text>
+  <text class="svg-ts" x="245" y="200" text-anchor="middle" fill="var(--blue)">D0</text>
+  <text class="svg-ts" x="295" y="200" text-anchor="middle" fill="var(--blue)">D1</text>
+  <text class="svg-ts" x="345" y="200" text-anchor="middle" fill="var(--blue)">D2</text>
+  <text class="svg-ts" x="395" y="200" text-anchor="middle" fill="var(--blue)">D3</text>
+  <text class="svg-ts" x="445" y="200" text-anchor="middle" fill="var(--blue)">D4</text>
+  <text class="svg-ts" x="495" y="200" text-anchor="middle" fill="var(--blue)">D5</text>
+  <text class="svg-ts" x="545" y="200" text-anchor="middle" fill="var(--blue)">D6</text>
+  <text class="svg-ts" x="595" y="200" text-anchor="middle" fill="var(--blue)">D7</text>
+  <text class="svg-ts" x="640" y="200" text-anchor="middle" fill="var(--green)">Stop</text>
+
+  <!-- Bit values -->
+  <text class="svg-th" x="245" y="220" text-anchor="middle" fill="var(--blue)">1</text>
+  <text class="svg-th" x="295" y="220" text-anchor="middle" fill="var(--blue)">0</text>
+  <text class="svg-th" x="345" y="220" text-anchor="middle" fill="var(--blue)">0</text>
+  <text class="svg-th" x="395" y="220" text-anchor="middle" fill="var(--blue)">0</text>
+  <text class="svg-th" x="445" y="220" text-anchor="middle" fill="var(--blue)">0</text>
+  <text class="svg-th" x="495" y="220" text-anchor="middle" fill="var(--blue)">0</text>
+  <text class="svg-th" x="545" y="220" text-anchor="middle" fill="var(--blue)">1</text>
+  <text class="svg-th" x="595" y="220" text-anchor="middle" fill="var(--blue)">0</text>
+
+  <!-- 1 bit time annotation -->
+  <line x1="220" y1="248" x2="270" y2="248" stroke="var(--text2)" stroke-width="0.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text class="svg-ts" x="245" y="264" text-anchor="middle">1비트 = 104μs (9600bps)</text>
+
+  <!-- Total frame annotation -->
+  <line x1="170" y1="290" x2="620" y2="290" stroke="var(--text2)" stroke-width="0.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text class="svg-ts" x="395" y="306" text-anchor="middle">1프레임 = 10비트 × 104μs = 1.04ms</text>
+</svg>
+
+<!-- State description cards -->
+<div class="note-row">
+  <div class="note-box n-idle">
+    <div class="title">Idle (유휴)</div>
+    HIGH 유지 = 대기 중<br>
+    데이터를 보내지 않을 때<br>
+    항상 HIGH를 유지하는 것이 약속
+  </div>
+  <div class="note-box n-start">
+    <div class="title">Start bit</div>
+    LOW로 떨어짐 = 전송 시작 신호<br>
+    "지금부터 데이터 보냅니다"<br>
+    수신 측이 이 하강을 감지
+  </div>
+  <div class="note-box n-data">
+    <div class="title">Data (D0~D7)</div>
+    HIGH/LOW = 실제 데이터 값<br>
+    LSB(bit 0)부터 전송<br>
+    1비트씩 총 8비트 전송
+  </div>
+  <div class="note-box n-stop">
+    <div class="title">Stop bit</div>
+    HIGH 복귀 = 전송 완료 신호<br>
+    "데이터 다 보냈습니다"<br>
+    다시 Idle 상태로 진입
+  </div>
+</div>
+
+<!-- FSM state mapping -->
+<div class="fsm-section">
+  <div class="fsm-title">uart_tx.v FSM 상태 매핑</div>
+  <div class="fsm-row">
+    <div class="fsm-card n-idle">
+      <div class="state">S_IDLE</div>
+      <code>tx = 1</code> (HIGH)<br>
+      <code>tx_busy = 0</code><br>
+      전송 안 함
+    </div>
+    <div class="fsm-arrow">→</div>
+    <div class="fsm-card n-start">
+      <div class="state">S_START</div>
+      <code>tx = 0</code> (LOW)<br>
+      <code>tx_busy = 1</code><br>
+      시작 알림
+    </div>
+    <div class="fsm-arrow">→</div>
+    <div class="fsm-card n-data">
+      <div class="state">S_DATA</div>
+      <code>tx = tx_shift[0]</code><br>
+      <code>tx_busy = 1</code><br>
+      데이터 전송
+    </div>
+    <div class="fsm-arrow">→</div>
+    <div class="fsm-card n-stop">
+      <div class="state">S_STOP</div>
+      <code>tx = 1</code> (HIGH)<br>
+      <code>tx_busy = 1</code><br>
+      전송 완료
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

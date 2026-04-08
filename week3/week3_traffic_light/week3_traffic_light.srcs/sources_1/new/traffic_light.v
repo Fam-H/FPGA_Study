@@ -117,7 +117,13 @@ module traffic_light(
         display_num = sec_counter + 1;  // 0부터 카운트하므로 +1 표시
     end
 
-    // 7세그먼트 디코더 (active-low)
+    // 7세그먼트: sec_counter 값을 표시 (active-low, seg[6]=a ~ seg[0]=g)
+    //  aaa
+    // f   b
+    //  ggg
+    // e   c
+    //  ddd
+    
     always @(*) begin
         an = 8'b11111110;  // AN[0]만 활성화
         case (sec_counter)
