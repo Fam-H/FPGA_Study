@@ -1,0 +1,140 @@
+<h2 class="sr-only">ASCII code table with decimal, hex, and binary values</h2>
+<style>
+.asc-wrap{padding:0.5rem 0}
+.asc-filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.asc-btn{padding:6px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;font-size:13px;font-family:inherit;transition:background .15s}
+.asc-btn:hover{background:var(--color-background-secondary)}
+.asc-btn.on{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+.asc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px}
+.asc-cell{border-radius:var(--border-radius-md);padding:8px 6px;text-align:center;cursor:pointer;border:0.5px solid var(--color-border-tertiary);transition:border-color .15s,background .15s}
+.asc-cell:hover{border-color:var(--color-border-primary);background:var(--color-background-secondary)}
+.asc-cell.sel{border-color:var(--color-border-info);border-width:2px;background:var(--color-background-info)}
+.asc-char{font-size:18px;font-weight:500;color:var(--color-text-primary);line-height:1.4;font-family:var(--font-mono)}
+.asc-dec{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.cat-ctrl{background:var(--color-background-warning);border-color:var(--color-border-warning)}
+.cat-ctrl .asc-char{color:var(--color-text-warning);font-size:11px}
+.cat-num{background:var(--color-background-info)}
+.cat-upper{background:var(--color-background-success)}
+.cat-lower{background:var(--color-background-danger)}
+.cat-sym{}
+.asc-detail{margin-top:16px;padding:16px 20px;border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);display:none}
+.asc-detail.show{display:block}
+.asc-detail-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px}
+.asc-detail-item{text-align:center}
+.asc-detail-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+.asc-detail-val{font-size:18px;font-weight:500;color:var(--color-text-primary);font-family:var(--font-mono)}
+.asc-detail-big{font-size:48px;font-weight:500;color:var(--color-text-primary);font-family:var(--font-mono);text-align:center;margin-bottom:8px}
+.asc-detail-bits{display:flex;gap:4px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.asc-bit{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--border-radius-md);font-family:var(--font-mono);font-size:16px;font-weight:500}
+.asc-bit-1{background:var(--color-background-info);color:var(--color-text-info)}
+.asc-bit-0{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.asc-bit-label{font-size:11px;color:var(--color-text-tertiary);text-align:center;width:36px}
+.asc-legend{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.asc-legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--color-text-secondary)}
+.asc-legend-dot{width:12px;height:12px;border-radius:3px}
+</style>
+
+<div class="asc-wrap">
+<div class="asc-filters" id="filters"></div>
+<div class="asc-legend" id="legend"></div>
+<div class="asc-grid" id="grid"></div>
+<div class="asc-detail" id="detail"></div>
+</div>
+
+<script>
+const cats=[
+{id:'all',label:'All'},
+{id:'upper',label:'A - Z'},
+{id:'lower',label:'a - z'},
+{id:'num',label:'0 - 9'},
+{id:'sym',label:'Symbols'},
+{id:'ctrl',label:'Control'}
+];
+const legendData=[
+{cls:'cat-upper',label:'A - Z',bg:'var(--color-background-success)'},
+{cls:'cat-lower',label:'a - z',bg:'var(--color-background-danger)'},
+{cls:'cat-num',label:'0 - 9',bg:'var(--color-background-info)'},
+{cls:'cat-sym',label:'Symbols',bg:'transparent'},
+{cls:'cat-ctrl',label:'Control',bg:'var(--color-background-warning)'}
+];
+const ctrlNames={0:'NUL',1:'SOH',2:'STX',3:'ETX',4:'EOT',5:'ENQ',6:'ACK',7:'BEL',8:'BS',9:'TAB',10:'LF',11:'VT',12:'FF',13:'CR',14:'SO',15:'SI',16:'DLE',17:'DC1',18:'DC2',19:'DC3',20:'DC4',21:'NAK',22:'SYN',23:'ETB',24:'CAN',25:'EM',26:'SUB',27:'ESC',28:'FS',29:'GS',30:'RS',31:'US',127:'DEL'};
+function getCategory(c){
+if(c<32||c===127)return'ctrl';
+if(c>=48&&c<=57)return'num';
+if(c>=65&&c<=90)return'upper';
+if(c>=97&&c<=122)return'lower';
+return'sym';
+}
+function getDisplay(c){
+if(c<32||c===127)return ctrlNames[c]||'?';
+if(c===32)return'SP';
+return String.fromCharCode(c);
+}
+let activeFilter='all';
+let selectedCode=65;
+const filtersEl=document.getElementById('filters');
+const legendEl=document.getElementById('legend');
+const gridEl=document.getElementById('grid');
+const detailEl=document.getElementById('detail');
+cats.forEach(c=>{
+const b=document.createElement('button');
+b.className='asc-btn'+(c.id==='all'?' on':'');
+b.textContent=c.label;
+b.dataset.cat=c.id;
+b.onclick=()=>{
+activeFilter=c.id;
+document.querySelectorAll('.asc-btn').forEach(x=>x.classList.toggle('on',x.dataset.cat===c.id));
+renderGrid();
+};
+filtersEl.appendChild(b);
+});
+legendData.forEach(l=>{
+const d=document.createElement('span');
+d.className='asc-legend-item';
+d.innerHTML='<span class="asc-legend-dot" style="background:'+l.bg+';border:0.5px solid var(--color-border-tertiary)"></span>'+l.label;
+legendEl.appendChild(d);
+});
+function renderGrid(){
+gridEl.innerHTML='';
+for(let i=0;i<128;i++){
+const cat=getCategory(i);
+if(activeFilter!=='all'&&cat!==activeFilter)continue;
+const d=document.createElement('div');
+d.className='asc-cell cat-'+cat+(i===selectedCode?' sel':'');
+d.innerHTML='<div class="asc-char">'+getDisplay(i)+'</div><div class="asc-dec">'+i+'</div>';
+d.onclick=()=>{selectedCode=i;renderGrid();renderDetail();};
+gridEl.appendChild(d);
+}
+}
+function renderDetail(){
+const c=selectedCode;
+const cat=getCategory(c);
+const hex=c.toString(16).toUpperCase().padStart(2,'0');
+const bin=c.toString(2).padStart(8,'0');
+const bits=bin.split('');
+let charDisplay=getDisplay(c);
+if(cat==='ctrl')charDisplay=ctrlNames[c]||'?';
+let desc='';
+if(cat==='ctrl')desc='Control character';
+else if(cat==='num')desc='Number';
+else if(cat==='upper')desc='Uppercase letter';
+else if(cat==='lower')desc='Lowercase letter';
+else desc='Symbol';
+detailEl.className='asc-detail show';
+detailEl.innerHTML=
+'<div class="asc-detail-big">'+charDisplay+'</div>'+
+'<div style="text-align:center;font-size:13px;color:var(--color-text-secondary);margin-bottom:16px">'+desc+'</div>'+
+'<div class="asc-detail-grid">'+
+'<div class="asc-detail-item"><div class="asc-detail-label">Decimal</div><div class="asc-detail-val">'+c+'</div></div>'+
+'<div class="asc-detail-item"><div class="asc-detail-label">Hex</div><div class="asc-detail-val">0x'+hex+'</div></div>'+
+'<div class="asc-detail-item"><div class="asc-detail-label">Binary</div><div class="asc-detail-val">'+bin+'</div></div>'+
+'<div class="asc-detail-item"><div class="asc-detail-label">Verilog</div><div class="asc-detail-val">8\'h'+hex+'</div></div>'+
+'</div>'+
+'<div class="asc-detail-bits">'+
+bits.map((b,i)=>'<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div class="asc-bit asc-bit-'+b+'">'+b+'</div><div class="asc-bit-label">D'+(7-i)+'</div></div>').join('')+
+'</div>'+
+'<div style="text-align:center;margin-top:10px;font-size:12px;color:var(--color-text-secondary)">UART 전송 순서 (LSB 먼저): '+bits.slice().reverse().join(' ')+'</div>';
+}
+renderGrid();
+renderDetail();
+</script>
