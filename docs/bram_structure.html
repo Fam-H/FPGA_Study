@@ -1,0 +1,165 @@
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #fff; color: #1a1a1a; }
+  @media (prefers-color-scheme: dark) { body { background: #1a1a1a; color: #e8e8e8; } }
+  .info { font-size:13px; color:#666; line-height:1.6; margin-bottom:12px; }
+  @media (prefers-color-scheme: dark) { .info { color:#999; } }
+  .info strong { color:#1a1a1a; font-weight:500; }
+  @media (prefers-color-scheme: dark) { .info strong { color:#e8e8e8; } }
+  .svg-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+</style>
+
+<div class="info">
+  <strong>BRAM 구조 — 주소로 접근하는 사물함</strong><br>
+  왼쪽: 입력 신호 (addr / din / we / clk)<br>
+  가운데: 메모리 배열 (주소별 데이터 저장 공간)<br>
+  오른쪽: 출력 신호 (dout)
+</div>
+
+<div id="diagram-panel"></div>
+
+<script>
+const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+// Background and base text colors
+const textPrimary = dark ? '#e8e8e8' : '#1a1a1a';
+const textSecondary = dark ? '#B4B2A9' : '#5F5E5A';
+const textMuted = dark ? '#888780' : '#888780';
+const hrColor = dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+
+// Color ramp stops - light mode uses 50 (fill) + 800/600 (text)
+// dark mode uses 800 (fill) + 100/200 (text)
+const ramps = {
+  blue:   { fill: dark ? '#0C447C' : '#E6F1FB', stroke: dark ? '#85B7EB' : '#185FA5', title: dark ? '#B5D4F4' : '#0C447C', sub: dark ? '#85B7EB' : '#185FA5' },
+  teal:   { fill: dark ? '#085041' : '#E1F5EE', stroke: dark ? '#5DCAA5' : '#0F6E56', title: dark ? '#9FE1CB' : '#085041', sub: dark ? '#5DCAA5' : '#0F6E56' },
+  amber:  { fill: dark ? '#633806' : '#FAEEDA', stroke: dark ? '#EF9F27' : '#854F0B', title: dark ? '#FAC775' : '#633806', sub: dark ? '#EF9F27' : '#854F0B' },
+  gray:   { fill: dark ? '#444441' : '#F1EFE8', stroke: dark ? '#B4B2A9' : '#5F5E5A', title: dark ? '#D3D1C7' : '#2C2C2A', sub: dark ? '#B4B2A9' : '#5F5E5A' },
+  purple: { fill: dark ? '#3C3489' : '#EEEDFE', stroke: dark ? '#AFA9EC' : '#534AB7', title: dark ? '#CECBF6' : '#26215C', sub: dark ? '#AFA9EC' : '#3C3489' },
+  coral:  { fill: dark ? '#712B13' : '#FAECE7', stroke: dark ? '#F0997B' : '#993C1D', title: dark ? '#F5C4B3' : '#4A1B0C', sub: dark ? '#F0997B' : '#712B13' },
+};
+
+// Highlighted cell (addr=5) uses amber with stronger emphasis
+const highlightCell = {
+  fill: dark ? '#854F0B' : '#FAC775',
+  stroke: dark ? '#FAC775' : '#854F0B',
+  text: dark ? '#FAEEDA' : '#412402'
+};
+
+const W = 720, H = 560;
+const panel = document.getElementById('diagram-panel');
+
+let svg = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+
+// Arrow marker
+svg += `<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`;
+
+// Title
+svg += `<text class="svg-label" x="${W/2}" y="28" text-anchor="middle" font-size="15px" font-weight="500" fill="${textPrimary}">BRAM = 주소가 매겨진 사물함</text>`;
+
+// ===== LEFT SIDE: Input signals =====
+function drawInputBox(x, y, w, h, ramp, title, subtitle) {
+  svg += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${ramp.fill}" stroke="${ramp.stroke}" stroke-width="0.5"/>`;
+  svg += `<text class="svg-label" x="${x + w/2}" y="${y + h/2 - 6}" text-anchor="middle" dominant-baseline="central" font-size="13px" font-weight="500" fill="${ramp.title}">${title}</text>`;
+  svg += `<text class="svg-label" x="${x + w/2}" y="${y + h/2 + 12}" text-anchor="middle" dominant-baseline="central" font-size="11px" fill="${ramp.sub}">${subtitle}</text>`;
+}
+
+drawInputBox(40, 75, 140, 50, ramps.blue,   'addr [9:0]', '주소 (어느 칸?)');
+drawInputBox(40, 140, 140, 50, ramps.teal,  'din [7:0]',  '쓸 데이터');
+drawInputBox(40, 205, 140, 50, ramps.amber, 'we',         '쓰기 허가');
+drawInputBox(40, 270, 140, 50, ramps.gray,  'clk',        '클럭');
+
+// ===== CENTER: BRAM body container =====
+const bramX = 235;
+const bramY = 65;
+const bramW = 240;
+const bramH = 445;
+
+svg += `<rect x="${bramX}" y="${bramY}" width="${bramW}" height="${bramH}" rx="12" fill="none" stroke="${ramps.purple.stroke}" stroke-width="1" stroke-dasharray="4 4" opacity="0.7"/>`;
+svg += `<text class="svg-label" x="${bramX + bramW/2}" y="${bramY - 8}" text-anchor="middle" font-size="13px" font-weight="500" fill="${ramps.purple.title}">BRAM 본체</text>`;
+
+// Memory cells
+const cellX = bramX + 15;
+const cellW = bramW - 30;
+const cellStartY = 85;
+const cellH = 34;
+const cellGap = 3;
+
+const cells = [
+  { addr: '0',    data: '0x3A', highlight: false },
+  { addr: '1',    data: '0xFF', highlight: false },
+  { addr: '2',    data: '0x00', highlight: false },
+  { addr: '3',    data: '0x7C', highlight: false },
+  { addr: '4',    data: '0x91', highlight: false },
+  { addr: '5',    data: '0xAB', highlight: true },
+  { addr: '6',    data: '0x42', highlight: false },
+  { addr: '7',    data: '0x05', highlight: false },
+];
+
+cells.forEach((cell, i) => {
+  const y = cellStartY + i * (cellH + cellGap);
+  
+  if (cell.highlight) {
+    svg += `<rect x="${cellX}" y="${y}" width="${cellW}" height="${cellH}" rx="6" fill="${highlightCell.fill}" stroke="${highlightCell.stroke}" stroke-width="1.5"/>`;
+    svg += `<text class="svg-label" x="${cellX + 25}" y="${y + cellH/2}" text-anchor="middle" dominant-baseline="central" font-size="12px" font-weight="500" fill="${highlightCell.text}">${cell.addr}</text>`;
+    svg += `<line x1="${cellX + 50}" y1="${y + 6}" x2="${cellX + 50}" y2="${y + cellH - 6}" stroke="${highlightCell.stroke}" stroke-width="0.5" opacity="0.5"/>`;
+    svg += `<text class="svg-label" x="${cellX + cellW/2 + 20}" y="${y + cellH/2}" text-anchor="middle" dominant-baseline="central" font-size="12px" font-weight="500" fill="${highlightCell.text}">${cell.data}</text>`;
+    svg += `<text class="svg-label" x="${cellX + cellW - 15}" y="${y + cellH/2}" text-anchor="middle" dominant-baseline="central" font-size="12px" font-weight="500" fill="${highlightCell.text}">←</text>`;
+  } else {
+    svg += `<rect x="${cellX}" y="${y}" width="${cellW}" height="${cellH}" rx="6" fill="${ramps.purple.fill}" stroke="${ramps.purple.stroke}" stroke-width="0.5"/>`;
+    svg += `<text class="svg-label" x="${cellX + 25}" y="${y + cellH/2}" text-anchor="middle" dominant-baseline="central" font-size="12px" font-weight="500" fill="${ramps.purple.sub}">${cell.addr}</text>`;
+    svg += `<line x1="${cellX + 50}" y1="${y + 6}" x2="${cellX + 50}" y2="${y + cellH - 6}" stroke="${ramps.purple.stroke}" stroke-width="0.5" opacity="0.4"/>`;
+    svg += `<text class="svg-label" x="${cellX + cellW/2 + 20}" y="${y + cellH/2}" text-anchor="middle" dominant-baseline="central" font-size="12px" fill="${ramps.purple.title}">${cell.data}</text>`;
+  }
+});
+
+// Ellipsis row
+const ellipsisY = cellStartY + 8 * (cellH + cellGap) + 10;
+svg += `<text class="svg-label" x="${cellX + cellW/2}" y="${ellipsisY}" text-anchor="middle" font-size="14px" fill="${textMuted}">⋮</text>`;
+
+// Final cell (1023)
+const lastY = ellipsisY + 20;
+svg += `<rect x="${cellX}" y="${lastY}" width="${cellW}" height="${cellH}" rx="6" fill="${ramps.purple.fill}" stroke="${ramps.purple.stroke}" stroke-width="0.5"/>`;
+svg += `<text class="svg-label" x="${cellX + 25}" y="${lastY + cellH/2}" text-anchor="middle" dominant-baseline="central" font-size="12px" font-weight="500" fill="${ramps.purple.sub}">1023</text>`;
+svg += `<line x1="${cellX + 50}" y1="${lastY + 6}" x2="${cellX + 50}" y2="${lastY + cellH - 6}" stroke="${ramps.purple.stroke}" stroke-width="0.5" opacity="0.4"/>`;
+svg += `<text class="svg-label" x="${cellX + cellW/2 + 20}" y="${lastY + cellH/2}" text-anchor="middle" dominant-baseline="central" font-size="12px" fill="${ramps.purple.title}">0xE1</text>`;
+
+// Column headers below last cell
+const headerY = lastY + cellH + 18;
+svg += `<text class="svg-label" x="${cellX + 25}" y="${headerY}" text-anchor="middle" font-size="10px" font-weight="500" fill="${ramps.purple.sub}">주소</text>`;
+svg += `<text class="svg-label" x="${cellX + cellW/2 + 20}" y="${headerY}" text-anchor="middle" font-size="10px" font-weight="500" fill="${ramps.purple.sub}">8비트 데이터</text>`;
+
+// ===== Connecting arrows: inputs → BRAM =====
+const arrowStroke = dark ? '#B4B2A9' : '#5F5E5A';
+
+// addr → BRAM (to highlighted cell area)
+svg += `<line x1="180" y1="100" x2="232" y2="180" stroke="${ramps.blue.stroke}" stroke-width="1.2" marker-end="url(#arrow)"/>`;
+// din → BRAM
+svg += `<line x1="180" y1="165" x2="232" y2="200" stroke="${ramps.teal.stroke}" stroke-width="1.2" marker-end="url(#arrow)"/>`;
+// we → BRAM
+svg += `<line x1="180" y1="230" x2="232" y2="220" stroke="${ramps.amber.stroke}" stroke-width="1.2" marker-end="url(#arrow)"/>`;
+// clk → BRAM
+svg += `<line x1="180" y1="295" x2="232" y2="240" stroke="${ramps.gray.stroke}" stroke-width="1.2" marker-end="url(#arrow)"/>`;
+
+// ===== RIGHT SIDE: Output signal =====
+const outX = 535;
+const outY = 260;
+const outW = 150;
+const outH = 60;
+
+svg += `<rect x="${outX}" y="${outY}" width="${outW}" height="${outH}" rx="8" fill="${ramps.coral.fill}" stroke="${ramps.coral.stroke}" stroke-width="0.5"/>`;
+svg += `<text class="svg-label" x="${outX + outW/2}" y="${outY + outH/2 - 8}" text-anchor="middle" dominant-baseline="central" font-size="13px" font-weight="500" fill="${ramps.coral.title}">dout [7:0]</text>`;
+svg += `<text class="svg-label" x="${outX + outW/2}" y="${outY + outH/2 + 10}" text-anchor="middle" dominant-baseline="central" font-size="11px" fill="${ramps.coral.sub}">읽은 데이터</text>`;
+
+// Highlighted cell → dout arrow
+const highlightCellY = cellStartY + 5 * (cellH + cellGap) + cellH/2;
+svg += `<line x1="${bramX + bramW}" y1="${highlightCellY}" x2="${outX - 3}" y2="${outY + outH/2}" stroke="${ramps.coral.stroke}" stroke-width="1.2" marker-end="url(#arrow)"/>`;
+
+// Caption on the arrow path
+svg += `<text class="svg-label" x="${(bramX + bramW + outX)/2}" y="${highlightCellY - 18}" text-anchor="middle" font-size="11px" font-weight="500" fill="${ramps.coral.sub}">addr=5</text>`;
+svg += `<text class="svg-label" x="${(bramX + bramW + outX)/2}" y="${highlightCellY - 4}" text-anchor="middle" font-size="11px" font-weight="500" fill="${ramps.coral.sub}">→ 0xAB 출력</text>`;
+
+// ===== Bottom legend / key concept =====
+svg += `<line x1="40" y1="540" x2="${W - 40}" y2="540" stroke="${hrColor}" stroke-width="0.5" opacity="0"/>`;
+
+svg += `</svg>`;
+panel.innerHTML = svg;
+</script>
